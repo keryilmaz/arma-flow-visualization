@@ -130,29 +130,18 @@ const ArmaFlowMap = () => {
       };
 
       const createFlowPaths = () => {
-        const targetX = 100; // USDC destination
-        const targetY = p.height / 2;
+        const sourceX = 100;
+        const sourceY = p.height / 2;
         
         protocols.forEach((protocol, i) => {
           const curvature = p.random(0.3, 0.7);
-          const midX = p.lerp(protocol.x, targetX, curvature);
-          const midY = p.lerp(protocol.y, targetY, 0.5) + p.random(-50, 50);
-          
-          // Create starting point behind the protocol circle
-          const behindDistance = 50; // Distance behind the circle
-          const directionX = protocol.x - targetX;
-          const directionY = protocol.y - targetY;
-          const magnitude = Math.sqrt(directionX * directionX + directionY * directionY);
-          const normalizedX = directionX / magnitude;
-          const normalizedY = directionY / magnitude;
-          
-          const startX = protocol.x + normalizedX * behindDistance;
-          const startY = protocol.y + normalizedY * behindDistance;
+          const midX = p.lerp(sourceX, protocol.x, curvature);
+          const midY = p.lerp(sourceY, protocol.y, 0.5) + p.random(-50, 50);
           
           flowPaths.push({
-            source: { x: startX, y: startY }, // Start from behind protocol
+            source: { x: sourceX, y: sourceY },
             mid: { x: midX, y: midY },
-            target: { x: targetX, y: targetY }, // Flow toward USDC
+            target: { x: protocol.x, y: protocol.y },
             protocol: protocol,
             thickness: p.map(protocol.balance, 0, 2000000, 5, 50),
             particles: []
@@ -317,25 +306,25 @@ const ArmaFlowMap = () => {
               // Create gradient stroke with multiple layers
               const strokeWidth = p.map(trailProgress, 0, 1, 6 * controls.particleSize, 0.5);
               
-              // Outer glow layer
-              p.stroke(...particle.color, alpha * 30);
-              p.strokeWeight(strokeWidth * 3);
+              // Outer glow layer (more subtle)
+              p.stroke(...particle.color, alpha * 15);
+              p.strokeWeight(strokeWidth * 2);
               p.line(current.x, current.y, next.x, next.y);
               
               // Middle layer
-              p.stroke(...particle.color, alpha * 60);
-              p.strokeWeight(strokeWidth * 1.5);
+              p.stroke(...particle.color, alpha * 40);
+              p.strokeWeight(strokeWidth * 1.2);
               p.line(current.x, current.y, next.x, next.y);
               
               // Inner core
-              p.stroke(...particle.color, alpha * 120);
-              p.strokeWeight(strokeWidth * 0.8);
+              p.stroke(...particle.color, alpha * 80);
+              p.strokeWeight(strokeWidth * 0.6);
               p.line(current.x, current.y, next.x, next.y);
               
-              // Bright center line for recent trail
-              if (trailProgress > 0.7) {
-                p.stroke(255, 255, 255, alpha * 80);
-                p.strokeWeight(strokeWidth * 0.2);
+              // Bright center line for recent trail (more subtle)
+              if (trailProgress > 0.8) {
+                p.stroke(255, 255, 255, alpha * 40);
+                p.strokeWeight(strokeWidth * 0.15);
                 p.line(current.x, current.y, next.x, next.y);
               }
             }
@@ -343,31 +332,31 @@ const ArmaFlowMap = () => {
             p.blendMode(p.BLEND); // Reset blend mode
           }
           
-          // Draw bright particle head with additive glow
+          // Draw more subtle particle head with glow
           p.blendMode(p.ADD);
-          const headSize = 6 * controls.particleSize;
-          const glowSize = headSize * 4;
+          const headSize = 5 * controls.particleSize;
+          const glowSize = headSize * 2.5;
           
-          // Large outer glow
-          p.fill(...particle.color, 15 * controls.opacity);
+          // Subtle outer glow
+          p.fill(...particle.color, 8 * controls.opacity);
           p.noStroke();
           p.ellipse(pos.x, pos.y, glowSize, glowSize);
           
           // Medium glow
-          p.fill(...particle.color, 40 * controls.opacity);
-          p.ellipse(pos.x, pos.y, headSize * 2, headSize * 2);
+          p.fill(...particle.color, 25 * controls.opacity);
+          p.ellipse(pos.x, pos.y, headSize * 1.5, headSize * 1.5);
           
           // Inner glow
-          p.fill(...particle.color, 80 * controls.opacity * particle.brightness);
+          p.fill(...particle.color, 60 * controls.opacity * particle.brightness);
           p.ellipse(pos.x, pos.y, headSize, headSize);
           
           // Bright core
-          p.fill(...particle.color, 150 * controls.opacity * particle.brightness);
-          p.ellipse(pos.x, pos.y, headSize * 0.6, headSize * 0.6);
+          p.fill(...particle.color, 100 * controls.opacity * particle.brightness);
+          p.ellipse(pos.x, pos.y, headSize * 0.5, headSize * 0.5);
           
-          // Ultra-bright white center
-          p.fill(255, 255, 255, 120 * controls.opacity * particle.brightness);
-          p.ellipse(pos.x, pos.y, headSize * 0.2, headSize * 0.2);
+          // Subtle white center
+          p.fill(255, 255, 255, 60 * controls.opacity * particle.brightness);
+          p.ellipse(pos.x, pos.y, headSize * 0.15, headSize * 0.15);
           
           p.blendMode(p.BLEND); // Reset blend mode
         });
@@ -428,8 +417,8 @@ const ArmaFlowMap = () => {
           // Flow activity indicators
           p.textSize(10);
           p.fill(255, 255, 255, 150);
-          p.text('● Agents flow from protocols to USDC source', 50, 180);
-          p.text('● Reverse liquidity flow visualization', 50, 195);
+          p.text('● All agents behave equally across protocols', 50, 180);
+          p.text('● Uniform flow representation', 50, 195);
           p.text(`● Press D for details, L for lines ${showFlowLines ? '(ON)' : '(OFF)'}`, 50, 210);
           p.text(`● Press C for controls`, 50, 225);
         } else {
