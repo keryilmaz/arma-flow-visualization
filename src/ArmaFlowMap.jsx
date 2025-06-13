@@ -130,18 +130,29 @@ const ArmaFlowMap = () => {
       };
 
       const createFlowPaths = () => {
-        const sourceX = 100;
-        const sourceY = p.height / 2;
+        const targetX = 100; // USDC destination
+        const targetY = p.height / 2;
         
         protocols.forEach((protocol, i) => {
           const curvature = p.random(0.3, 0.7);
-          const midX = p.lerp(sourceX, protocol.x, curvature);
-          const midY = p.lerp(sourceY, protocol.y, 0.5) + p.random(-50, 50);
+          const midX = p.lerp(protocol.x, targetX, curvature);
+          const midY = p.lerp(protocol.y, targetY, 0.5) + p.random(-50, 50);
+          
+          // Create starting point behind the protocol circle
+          const behindDistance = 50; // Distance behind the circle
+          const directionX = protocol.x - targetX;
+          const directionY = protocol.y - targetY;
+          const magnitude = Math.sqrt(directionX * directionX + directionY * directionY);
+          const normalizedX = directionX / magnitude;
+          const normalizedY = directionY / magnitude;
+          
+          const startX = protocol.x + normalizedX * behindDistance;
+          const startY = protocol.y + normalizedY * behindDistance;
           
           flowPaths.push({
-            source: { x: sourceX, y: sourceY },
+            source: { x: startX, y: startY }, // Start from behind protocol
             mid: { x: midX, y: midY },
-            target: { x: protocol.x, y: protocol.y }, // This should be the center of the protocol circle
+            target: { x: targetX, y: targetY }, // Flow toward USDC
             protocol: protocol,
             thickness: p.map(protocol.balance, 0, 2000000, 5, 50),
             particles: []
@@ -218,6 +229,7 @@ const ArmaFlowMap = () => {
             p.strokeWeight(flow.thickness);
             p.noFill();
             
+            // Draw path from protocol area to USDC
             p.bezier(
               flow.source.x, flow.source.y,
               flow.mid.x, flow.source.y,
@@ -416,8 +428,8 @@ const ArmaFlowMap = () => {
           // Flow activity indicators
           p.textSize(10);
           p.fill(255, 255, 255, 150);
-          p.text('● All agents behave equally across protocols', 50, 180);
-          p.text('● Uniform flow representation', 50, 195);
+          p.text('● Agents flow from protocols to USDC source', 50, 180);
+          p.text('● Reverse liquidity flow visualization', 50, 195);
           p.text(`● Press D for details, L for lines ${showFlowLines ? '(ON)' : '(OFF)'}`, 50, 210);
           p.text(`● Press C for controls`, 50, 225);
         } else {
