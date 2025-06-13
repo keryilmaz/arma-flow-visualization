@@ -257,23 +257,20 @@ const ArmaFlowMap = () => {
       };
 
       const createParticle = (flow, timeOffset = 0) => {
-        // All particles start with same base size - only controlled by user settings
-        const baseSize = 6 * controls.particleSize; // Fixed base size
-        const sizeVariation = p.random(0.7, 1.3);
-        
-        // All particles have same base speed - only controlled by user settings
-        const baseSpeed = 0.015 * controls.velocity; // Fixed base speed
+        // Create shooting star particle with trail history
+        const baseSpeed = 0.015 * controls.velocity;
         const speedVariation = p.random(0.8, 1.2);
         
         particles.push({
           t: timeOffset,
           flow: flow,
-          color: [...flow.protocol.color, p.random(200, 255) * controls.opacity],
-          size: baseSize * sizeVariation,
+          color: [...flow.protocol.color],
           speed: baseSpeed * speedVariation,
-          pulsePhase: p.random(0, p.TWO_PI), // For pulsing effect
           initialAlpha: p.random(180, 255) * controls.opacity,
-          lifeMultiplier: controls.lifespan
+          lifeMultiplier: controls.lifespan,
+          trail: [], // Store trail positions
+          maxTrailLength: Math.floor(20 * controls.trailLength), // Dynamic trail length
+          brightness: p.random(0.7, 1.0)
         });
       };
 
@@ -281,29 +278,86 @@ const ArmaFlowMap = () => {
         particles.forEach(particle => {
           const pos = getBezierPoint(particle.flow, particle.t);
           
-          // Pulsing effect for larger particles
-          const pulseScale = 1 + Math.sin(p.frameCount * 0.1 + particle.pulsePhase) * (0.2 * controls.pulseIntensity);
-          const currentSize = particle.size * pulseScale;
+          // Add current position to trail
+          particle.trail.push({
+            x: pos.x,
+            y: pos.y,
+            life: 1.0
+          });
           
-          // Trail effect - draw smaller particles behind
-          if (particle.t > 0.1 && controls.trailLength > 0) {
-            const trailOffset = 0.05 * controls.trailLength;
-            const trailPos = getBezierPoint(particle.flow, particle.t - trailOffset);
-            p.fill(...particle.color.slice(0, 3), particle.color[3] * 0.3);
-            p.noStroke();
-            p.ellipse(trailPos.x, trailPos.y, currentSize * 0.6, currentSize * 0.6);
+          // Limit trail length
+          if (particle.trail.length > particle.maxTrailLength) {
+            particle.trail.shift();
           }
           
-          // Main particle with glow effect
-          p.fill(...particle.color);
+          // Draw shooting star trail with additive blending
+          if (particle.trail.length > 1 && controls.trailLength > 0) {
+            p.blendMode(p.ADD); // Enable glow effect for trails
+            
+            for (let i = 0; i < particle.trail.length - 1; i++) {
+              const current = particle.trail[i];
+              const next = particle.trail[i + 1];
+              
+              // Calculate trail fade
+              const trailProgress = i / (particle.trail.length - 1);
+              const alpha = (1 - trailProgress) * particle.brightness * controls.opacity;
+              
+              // Create gradient stroke with multiple layers
+              const strokeWidth = p.map(trailProgress, 0, 1, 6 * controls.particleSize, 0.5);
+              
+              // Outer glow layer
+              p.stroke(...particle.color, alpha * 30);
+              p.strokeWeight(strokeWidth * 3);
+              p.line(current.x, current.y, next.x, next.y);
+              
+              // Middle layer
+              p.stroke(...particle.color, alpha * 60);
+              p.strokeWeight(strokeWidth * 1.5);
+              p.line(current.x, current.y, next.x, next.y);
+              
+              // Inner core
+              p.stroke(...particle.color, alpha * 120);
+              p.strokeWeight(strokeWidth * 0.8);
+              p.line(current.x, current.y, next.x, next.y);
+              
+              // Bright center line for recent trail
+              if (trailProgress > 0.7) {
+                p.stroke(255, 255, 255, alpha * 80);
+                p.strokeWeight(strokeWidth * 0.2);
+                p.line(current.x, current.y, next.x, next.y);
+              }
+            }
+            
+            p.blendMode(p.BLEND); // Reset blend mode
+          }
+          
+          // Draw bright particle head with additive glow
+          p.blendMode(p.ADD);
+          const headSize = 6 * controls.particleSize;
+          const glowSize = headSize * 4;
+          
+          // Large outer glow
+          p.fill(...particle.color, 15 * controls.opacity);
           p.noStroke();
-          p.ellipse(pos.x, pos.y, currentSize, currentSize);
+          p.ellipse(pos.x, pos.y, glowSize, glowSize);
           
-          // Outer glow for larger particles
-          if (particle.size > 6) {
-            p.fill(...particle.color.slice(0, 3), particle.color[3] * 0.3);
-            p.ellipse(pos.x, pos.y, currentSize * 1.5, currentSize * 1.5);
-          }
+          // Medium glow
+          p.fill(...particle.color, 40 * controls.opacity);
+          p.ellipse(pos.x, pos.y, headSize * 2, headSize * 2);
+          
+          // Inner glow
+          p.fill(...particle.color, 80 * controls.opacity * particle.brightness);
+          p.ellipse(pos.x, pos.y, headSize, headSize);
+          
+          // Bright core
+          p.fill(...particle.color, 150 * controls.opacity * particle.brightness);
+          p.ellipse(pos.x, pos.y, headSize * 0.6, headSize * 0.6);
+          
+          // Ultra-bright white center
+          p.fill(255, 255, 255, 120 * controls.opacity * particle.brightness);
+          p.ellipse(pos.x, pos.y, headSize * 0.2, headSize * 0.2);
+          
+          p.blendMode(p.BLEND); // Reset blend mode
         });
       };
 
@@ -311,17 +365,22 @@ const ArmaFlowMap = () => {
         for (let i = particles.length - 1; i >= 0; i--) {
           particles[i].t += particles[i].speed;
           
-          // Fade out particles as they approach destination (with lifespan control)
-          const endTime = particles[i].lifeMultiplier;
-          particles[i].color[3] = p.map(particles[i].t, 0, endTime, particles[i].initialAlpha, 0);
+          // Update trail life
+          particles[i].trail.forEach(point => {
+            point.life -= 0.02; // Trail decay rate
+          });
+          
+          // Remove expired trail points
+          particles[i].trail = particles[i].trail.filter(point => point.life > 0);
           
           // Remove completed particles
+          const endTime = particles[i].lifeMultiplier;
           if (particles[i].t >= endTime) {
             particles.splice(i, 1);
           }
         }
         
-        // Limit total particles for performance - controlled by maxParticles setting
+        // Limit total particles for performance
         if (particles.length > controls.maxParticles) {
           particles.splice(0, particles.length - controls.maxParticles);
         }
